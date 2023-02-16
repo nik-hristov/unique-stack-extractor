@@ -6,11 +6,29 @@ import java.util.Objects;
  * Represents the stacktrace
  */
 public class StackFrame {
+  String moduleName;
+  String moduleVersion;
   String declaringClass;
   String methodName;
   String fileName;
   int lineNumber;
   int format;
+
+  public String getModuleName() {
+    return moduleName;
+  }
+
+  public void setModuleName(final String moduleName) {
+    this.moduleName = moduleName;
+  }
+
+  public String getModuleVersion() {
+    return moduleVersion;
+  }
+
+  public void setModuleVersion(final String moduleVersion) {
+    this.moduleVersion = moduleVersion;
+  }
 
   public String getDeclaringClass() {
     return declaringClass;
@@ -57,7 +75,9 @@ public class StackFrame {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     final StackFrame that = (StackFrame) o;
-    return getLineNumber() == that.getLineNumber()
+    return Objects.equals(getModuleName(), that.getModuleName())
+        && Objects.equals(getModuleVersion(), that.getModuleVersion())
+        && getLineNumber() == that.getLineNumber()
         && getFormat() == that.getFormat()
         && Objects.equals(getDeclaringClass(), that.getDeclaringClass())
         && Objects.equals(getMethodName(), that.getMethodName())
@@ -67,6 +87,12 @@ public class StackFrame {
   @Override
   public int hashCode() {
     int result = 1;
+    final String moduleName = getModuleName();
+    result = 31 * result + (moduleName != null ? moduleName.hashCode() : 0);
+
+    final String moduleVersion = getModuleVersion();
+    result = 31 * result + (moduleVersion != null ? moduleVersion.hashCode() : 0);
+
     final String declaringClass = getDeclaringClass();
     result = 31 * result + (declaringClass != null ? declaringClass.hashCode() : 0);
 

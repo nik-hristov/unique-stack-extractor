@@ -18,6 +18,16 @@ public class StackFrameSerializer implements JsonSerializer<StackFrame>, JsonDes
                                 final JsonDeserializationContext jsonDeserializationContext) throws JsonParseException {
     final JsonObject object = jsonElement.getAsJsonObject();
     final StackFrame frame = new StackFrame();
+
+    final JsonElement moduleName = object.get("moduleName");
+    if (moduleName != null) {
+      frame.setModuleName(moduleName.getAsString());
+    }
+
+    final JsonElement moduleVersion = object.get("moduleVersion");
+    if (moduleVersion != null) {
+      frame.setModuleVersion(moduleVersion.getAsString());
+    }
     final JsonElement declaringClass = object.get("declaringClass");
     if (declaringClass != null) {
       frame.setDeclaringClass(declaringClass.getAsString());
@@ -48,6 +58,8 @@ public class StackFrameSerializer implements JsonSerializer<StackFrame>, JsonDes
   public JsonElement serialize(final StackFrame stackFrame, final Type type,
                                final JsonSerializationContext jsonSerializationContext) {
     final JsonObject object = new JsonObject();
+    object.addProperty("moduleName", stackFrame.getModuleName());
+    object.addProperty("moduleVersion", stackFrame.getModuleVersion());
     object.addProperty("declaringClass", stackFrame.getDeclaringClass());
     object.addProperty("methodName", stackFrame.getMethodName());
     object.addProperty("fileName", stackFrame.getFileName());
