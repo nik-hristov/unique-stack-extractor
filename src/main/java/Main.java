@@ -15,6 +15,26 @@ import json.Event;
 import json.StackFrame;
 import json.StackFrameSerializer;
 
+/**
+ * Run it like java -jar unique-stacktrace-extract.jar file.sql
+ * <p>
+ * Additional arguments can be added for easier comparison:
+ * -simple = to change lambda and proxy references, because identical stacktraces might appear as non-unique because
+ * of lambdas or proxies, for instance ProviderRegistryImpl$$Lambda$530/0x00000000ac610860 will be simplified to
+ * ProviderRegistryImpl$LambdaReference and jdk.proxy3.$Proxy74 will become jdk.proxy3.$Proxy
+ * <p>
+ * -ln = remove line numbers and format (both become -1), because it sometimes appears that two identical stacks have
+ * slightly different line number and format fields (for instance one has line number 87 and format 0 and the other
+ * stack frame has line number 88 and format 1)
+ * <p>
+ * - fn = remove filenames (filenames become <omitted> ) - there are cases where the filename is not present and
+ * there are two absolutely identical stacktraces, but one of them completely lacks filename fields.
+ * <p>
+ * And no, it's not a problem in the deserializing, the filename fields do not exist in the db-audit result.
+ * <p>
+ * sooo normally you would want to run it with just -simple like so:
+ * <b>java -jar unique-stacktrace-extract.jar file.sql -simple</b>
+ */
 public class Main {
   // we expect stack to be second column, but who knows
   private static int columnIndex = 2;
@@ -22,6 +42,9 @@ public class Main {
       new GsonBuilder()
           .registerTypeAdapter(StackFrame.class, new StackFrameSerializer())
           .create();
+  public static boolean simpleCompare = false;
+  public static boolean omitLinesAndFormat = false;
+  public static boolean omitFilenames = false;
 
   public static void main(String[] args) {
     String inputFileName = args[0];
@@ -29,10 +52,29 @@ public class Main {
       System.out.println("Input filename can't be empty");
       return;
     }
+    if (args.length > 1) {
+      for (int i = 1; i < args.length; i++) {
+        switch (args[i]) {
+          case "-simple":
+            System.out.println("Simple compare: ON\nLambdas and proxies will be overridden to avoid confusion");
+            simpleCompare = true;
+            break;
+          case "-ln":
+            omitLinesAndFormat = true;
+            System.out.println("Format and line numbers will be omitted");
+            break;
+          case "-fn":
+            System.out.println("File names will be omitted");
+            omitFilenames = true;
+            break;
+        }
+      }
+    }
+
     try {
       List<Event> events = loadFile(inputFileName);
       System.out.println("Found " + events.size() + " db events");
-      Set<Event> uniques = new HashSet<>(events);
+      Set<Event> uniques = compareUniques(events);
       System.out.println("Extracted " + uniques.size() + " unique stack traces");
       final String outputFilename = inputFileName.substring(0, inputFileName.lastIndexOf(".")) + "-uniques.json";
       try (FileWriter fl = new FileWriter(outputFilename)) {
@@ -88,6 +130,23 @@ public class Main {
     final Event data = new Event();
     data.setStackTraceElements(stackFrames);
     return data;
+  }
+
+  private static Set<Event> compareUniques(final List<Event> events) {
+    Set<Event> uniques = new HashSet<>();
+    if (omitRequired()) {
+      for (Event event : events) {
+        event.omit(simpleCompare, omitLinesAndFormat, omitFilenames);
+        uniques.add(event);
+      }
+    } else {
+      uniques.addAll(events);
+    }
+    return uniques;
+  }
+
+  private static boolean omitRequired() {
+    return (simpleCompare || omitFilenames || omitLinesAndFormat);
   }
 
   /**
